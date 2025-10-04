@@ -6,9 +6,9 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
 st.set_page_config(layout="wide")
-st.title("🖼️ AI Agent — Ảnh ghép lưới không giới hạn kèm mô tả + Preview 100x100")
+st.title("🖼️ AI Agent — Ảnh ghép lưới kèm mô tả + Preview")
 
-# ---------- hàm đo text ----------
+# ---------- Hàm đo text ----------
 def measure_text(draw, text, font):
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -21,7 +21,7 @@ def measure_text(draw, text, font):
         except Exception:
             return (len(text) * 6, 12)
 
-# ---------- hàm tạo ảnh ghép ----------
+# ---------- Hàm tạo ảnh ghép ----------
 def make_grid_with_captions(cells, cols=4, size=(300, 300), caption_height=60, bg_color=(255,255,255)):
     total = len(cells)
     if total == 0:
@@ -72,14 +72,20 @@ def make_grid_with_captions(cells, cols=4, size=(300, 300), caption_height=60, b
     return grid
 
 
+# ---------- Session init ----------
+if "uploader_key" not in st.session_state:
+    st.session_state["uploader_key"] = 0
+if "confirm_reset" not in st.session_state:
+    st.session_state["confirm_reset"] = False
+
 # ---------- Giao diện ----------
-st.markdown("### 👉 Tải lên nhiều ảnh, xem preview nhỏ và nhập mô tả")
+st.markdown("### 👉 Tải lên nhiều ảnh, xem preview 100x100 và nhập mô tả")
 
 uploaded_files = st.file_uploader(
     "Chọn nhiều ảnh (PNG/JPG)",
     type=["png", "jpg", "jpeg"],
     accept_multiple_files=True,
-    key="uploader"
+    key=f"uploader_{st.session_state.uploader_key}"
 )
 
 cells = []
@@ -91,7 +97,7 @@ if uploaded_files:
         with col1:
             try:
                 img_preview = Image.open(io.BytesIO(fb)).convert("RGB")
-                img_preview = img_preview.resize((100, 100))  # đổi preview thành 100x100
+                img_preview = img_preview.resize((100, 100))
                 st.image(img_preview)
             except Exception:
                 st.write("❌ Không xem được")
@@ -103,22 +109,24 @@ if cells:
     col_a, col_b = st.columns([1,1])
     with col_a:
         cols_input = st.number_input("Số cột trong lưới", min_value=1, max_value=10, value=4)
-    with col_b:
-        if st.button("🔄 Reset nhập lại"):
-            st.session_state["show_reset_confirm"] = True
 
-    # Nếu người dùng bấm Reset → hiện popup xác nhận
-    if st.session_state.get("show_reset_confirm", False):
-        st.warning("Bạn có chắc muốn xoá toàn bộ ảnh và mô tả không?")
+    with col_b:
+        if st.button("🔄 Reset (Xoá tất cả)"):
+            st.session_state["confirm_reset"] = True
+            st.rerun()
+
+    # Popup xác nhận reset
+    if st.session_state["confirm_reset"]:
+        st.warning("Bạn có chắc muốn xoá hết dữ liệu và tải lại từ đầu?")
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ Yes, xoá hết"):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
+                st.session_state.clear()
+                st.session_state["uploader_key"] = st.session_state.get("uploader_key", 0) + 1
                 st.rerun()
         with c2:
             if st.button("❌ No, giữ lại"):
-                st.session_state["show_reset_confirm"] = False
+                st.session_state["confirm_reset"] = False
                 st.rerun()
 
     if st.button("🚀 Tạo ảnh ghép"):
